@@ -14,7 +14,7 @@ var http = require('http'),
 	faviconGzip = gzip(favicon),
 	faviconPNG = fsRead('favicon.png'),
 	faviconPNGGZip = gzip(faviconPNG),
-	port = process.env.PORT || 8080,
+	port = 8001,
 	debug = process.argv.indexOf('--debug') != -1,
 	errorString = chalk.red,
 	normalString = chalk.yellow;
