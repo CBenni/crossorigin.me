@@ -31,7 +31,7 @@ var http = require('http'),
 			'accept-encoding': 'gzip'
 		}
 	},
-	sizeLimit = 2e6; // 2MB - change this to false if you want unlimited file size
+	sizeLimit = 2e9; // 2MB - change this to false if you want unlimited file size
 
 	server = http.createServer(function (req, res) {
 		var d = domain.create();
@@ -68,34 +68,36 @@ var http = require('http'),
 		res.end();
 	},
 	handleOptions = function handleOptions (res, req) {
+		var options, opts = JSON.parse(JSON.stringify(requestOptions));
+		var url = req.url.split(']http')
+		try {
+			options = JSON.parse(('{'+ url[0].substr(2) + '}').replace(/([a-z][^:]*)(?=\s*:)/g, '"$1"'));
+		} catch (e) {
+			options = {}
+		}
+		
+		if(url.length == 1 && url[0].indexOf("betterttv.net") == -1) return;
+		else if(url.length == 2 && url[1].indexOf("betterttv.net") == -1) return;
+		else if(url.length > 2) return;
 
-		var options,
-			opts = JSON.parse(JSON.stringify(requestOptions));
-			var url = req.url.split(']http')
-			try {
-				options = JSON.parse(('{'+ url[0].substr(2) + '}').replace(/([a-z][^:]*)(?=\s*:)/g, '"$1"'));
-			} catch (e) {
-				options = {}
+		opts.uri = url[1] ? 'http' + url[1] : url[0].substr(1)
+		opts.flags = {}
+
+		for (var i in defaultOptions) {
+			options[i] = (typeof options[i] === 'boolean' ? options[i] : defaultOptions[i])
+
+			switch (i) {
+				case "gzip":
+					if (options.gzip === false) {
+						opts.headers['accept-encoding'] = 'identity'
+					}
+					else {
+						opts.headers['accept-encoding'] = 'gzip'
+						opts.flags.gzip = true
+					}
+					break;
 			}
-
-			opts.uri = url[1] ? 'http' + url[1] : url[0].substr(1)
-			opts.flags = {}
-
-			for (var i in defaultOptions) {
-				options[i] = (typeof options[i] === 'boolean' ? options[i] : defaultOptions[i])
-
-				switch (i) {
-					case "gzip":
-						if (options.gzip === false) {
-							opts.headers['accept-encoding'] = 'identity'
-						}
-						else {
-							opts.headers['accept-encoding'] = 'gzip'
-							opts.flags.gzip = true
-						}
-						break;
-				}
-			}
+		}
 		return opts
 	},
 	handler = function handler(req, res) {
@@ -123,8 +125,14 @@ var http = require('http'),
 				res.setHeader('Access-Control-Allow-Credentials', false);
 				res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 				res.setHeader('Expires', new Date(Date.now() + 86400000).toUTCString()); // one day in the future
-				var options = handleOptions(res, req),
-					r = request(options);
+				var options = handleOptions(res, req);
+				if(!options) {
+					console.log(errorString('invalid request '+req.url));
+					res.writeHead(403);
+					res.end('FORBIDDEN');
+					return;
+				}
+				var r = request(options);
 				r.pipefilter = function(response, dest) {
 					var size = 0;
 					//var ip;
